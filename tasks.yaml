@@ -20,15 +20,54 @@ spec:
         #!/usr/bin/env sh
         set -eu
         echo "Removing all files from ${WORKSPACE_SOURCE_PATH} ..."
-        # Delete any existing contents of the directory if it exists.
-        #
-        # We don't just "rm -rf ${WORKSPACE_SOURCE_PATH}" because ${WORKSPACE_SOURCE_PATH} might be "/"
-        # or the root of a mounted volume.
         if [ -d "${WORKSPACE_SOURCE_PATH}" ] ; then
-          # Delete non-hidden files and directories
           rm -rf "${WORKSPACE_SOURCE_PATH:?}"/*
-          # Delete files and directories starting with . but excluding ..
           rm -rf "${WORKSPACE_SOURCE_PATH}"/.[!.]*
-          # Delete files and directories starting with .. plus any other character
           rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
         fi
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: npm
+spec:
+  description: Installs the Node.js dependencies of the project with npm.
+  workspaces:
+    - name: source
+  params:
+    - name: args
+      description: Arguments to pass to npm
+      type: string
+      default: "install"
+  steps:
+    - name: npm-install
+      image: node:18-alpine
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/sh
+        set -e
+        npm $(params.args)
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: jasmine
+spec:
+  description: Runs the Jasmine unit tests of the project.
+  workspaces:
+    - name: source
+  params:
+    - name: args
+      description: Arguments to pass to Jasmine
+      type: string
+      default: ""
+  steps:
+    - name: jasmine-test
+      image: node:18-alpine
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/sh
+        set -e
+        npx jasmine $(params.args)
